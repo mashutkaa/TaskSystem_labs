@@ -7,7 +7,6 @@ namespace DAL.UnitOfWork
     {
         ITaskRepository Tasks { get; }
         IRepository<Entities.User> Users { get; }
-        // Можна додати репозиторії для Status/Priority якщо треба
 
         void Save();
     }

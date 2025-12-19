@@ -20,7 +20,7 @@ namespace DAL.Entities
         public string PasswordHash { get; set; }
 
         [Required]
-        public string Role { get; set; } // Admin, Manager, Employee
+        public string Role { get; set; } // Admin, Manager, Employee, HR
 
         // Навігаційні властивості
         public ICollection<Task> CreatedTasks { get; set; } // Завдання, які створив менеджер

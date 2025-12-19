@@ -8,7 +8,6 @@ using DAL.Repositories.Interfaces;
 
 namespace DAL.Repositories.Impl
 {
-    // ВИПРАВЛЕННЯ: BaseRepository<DAL.Entities.Task>
     public class TaskRepository : BaseRepository<DAL.Entities.Task>, ITaskRepository
     {
         public TaskRepository(TaskContext context) : base(context)
@@ -29,7 +28,7 @@ namespace DAL.Repositories.Impl
         {
             return _context.Tasks
                 .Include(t => t.Status)
-                .Include(t => t.Priority) // Додав ще пріоритет для краси
+                .Include(t => t.Priority)
                 .Where(t => t.AssigneeId == userId)
                 .ToList();
         }

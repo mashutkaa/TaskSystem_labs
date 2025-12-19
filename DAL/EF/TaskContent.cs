@@ -7,7 +7,6 @@ namespace DAL.EF
     {
         public DbSet<User> Users { get; set; }
 
-        // ВИПРАВЛЕННЯ: Пишемо Entities.Task, щоб не плутати з системним
         public DbSet<DAL.Entities.Task> Tasks { get; set; }
 
         public DbSet<DAL.Entities.TaskStatus> TaskStatuses { get; set; }

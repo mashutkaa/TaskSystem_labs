@@ -1,146 +1,116 @@
-﻿using System;
-using System.Linq;
-using Microsoft.EntityFrameworkCore;
+﻿using BLL.DTO;
+using BLL.Infrastructure;
+using BLL.Interfaces;
+// УВАГА: Підключаємо BLL
+using BLL.Services;
 using DAL.EF;
-using DAL.Entities;
 using DAL.UnitOfWork;
-
-// Щоб не плутати системні Task і наші, зробимо псевдонім
-using MyTask = DAL.Entities.Task;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.Linq;
 
 namespace ConsoleUI
 {
     class Program
     {
-        // Змінна для збереження поточного користувача
-        static User currentUser = null;
+        // Змінна для поточного користувача (спрощена імітація сесії)
+        static int currentUserId;
+        static string currentUserRole;
 
         static void Main(string[] args)
         {
+            // Налаштування БД
             string connectionString = "server=localhost;database=task_management_system;user=root;password=1111;";
-
             var optionsBuilder = new DbContextOptionsBuilder<TaskContext>();
             optionsBuilder.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21)));
 
             using (var context = new TaskContext(optionsBuilder.Options))
             {
-                context.Database.EnsureCreated(); // Гарантуємо, що БД є
+                context.Database.EnsureCreated();
 
-                using (var uow = new UnitOfWork(context))
+                // Створюємо ланцюжок залежностей: Context -> UnitOfWork -> Service
+                IUnitOfWork uow = new UnitOfWork(context);
+                ITaskService taskService = new TaskService(uow);
+
+                Console.OutputEncoding = System.Text.Encoding.UTF8;
+
+                // 1. АВТОРИЗАЦІЯ (Пропускаємо для економії часу, беремо менеджера ID=2)
+                currentUserId = 2;
+                currentUserRole = "Manager";
+                Console.WriteLine($"Вхід виконано: Менеджер (ID: {currentUserId})");
+
+                // --- МЕНЮ ---
+                while (true)
                 {
-                    Console.OutputEncoding = System.Text.Encoding.UTF8;
+                    Console.WriteLine("\n=== TASK MANAGER (LAYERED ARCHITECTURE) ===");
+                    Console.WriteLine("1. Показати всі завдання");
+                    Console.WriteLine("2. Показати мої завдання (якби я був співробітником)");
+                    Console.WriteLine("3. Створити завдання (через BLL)");
+                    Console.WriteLine("4. Прострочені завдання");
+                    Console.WriteLine("0. Вихід");
+                    Console.Write("Вибір: ");
 
-                    // 1. ЕТАП ЛОГІНУ
-                    if (!Login(uow)) return;
-
-                    // 2. ЕТАП МЕНЮ
-                    bool exit = false;
-                    while (!exit)
+                    string choice = Console.ReadLine();
+                    try
                     {
-                        Console.Clear();
-                        Console.WriteLine($"=== Система завдань | Користувач: {currentUser.FullName} ({currentUser.Role}) ===");
-                        Console.WriteLine("1. Переглянути всі завдання (Перевірка)");
-                        Console.WriteLine("2. Створити нове завдання");
-                        Console.WriteLine("3. Мої завдання (фільтр по мені)");
-                        Console.WriteLine("4. Прострочені завдання");
-                        Console.WriteLine("0. Вихід");
-                        Console.Write("\nВаш вибір: ");
-
-                        string choice = Console.ReadLine();
-
                         switch (choice)
                         {
                             case "1":
-                                ShowAllTasks(uow);
+                                ShowTasks(taskService.GetTasks(null));
                                 break;
                             case "2":
-                                CreateTask(uow);
+                                ShowTasks(taskService.GetTasks(4)); // Припустимо, ми дивимось за Петра (ID 4)
                                 break;
                             case "3":
-                                ShowMyTasks(uow);
+                                CreateTaskUI(taskService);
                                 break;
                             case "4":
-                                ShowOverdueTasks(uow);
+                                ShowTasks(taskService.GetOverdueTasks());
                                 break;
                             case "0":
-                                exit = true;
-                                break;
-                            default:
-                                Console.WriteLine("Невірний вибір.");
-                                break;
+                                return;
                         }
-
-                        if (!exit)
-                        {
-                            Console.WriteLine("\nНатисніть Enter, щоб продовжити...");
-                            Console.ReadLine();
-                        }
+                    }
+                    catch (ValidationException ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"[ВАЛІДАЦІЯ]: {ex.Message} (Поле: {ex.Property})");
+                        Console.ResetColor();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"[ПОМИЛКА]: {ex.Message}");
+                        Console.ResetColor();
                     }
                 }
             }
         }
 
-        // --- ЛОГІКА АВТОРИЗАЦІЇ ---
-        static bool Login(UnitOfWork uow)
+        static void ShowTasks(System.Collections.Generic.IEnumerable<TaskDTO> tasks)
         {
-            Console.Clear();
-            Console.WriteLine("--- ВХІД У СИСТЕМУ ---");
-
-            Console.Write("Email (default: manager@company.com): ");
-            string email = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(email)) email = "manager@company.com";
-
-            Console.Write("Password (default: manager_pass_hash): ");
-            string password = Console.ReadLine();
-            if (string.IsNullOrWhiteSpace(password)) password = "manager_pass_hash";
-
-            currentUser = uow.Users.Find(u => u.Email == email && u.PasswordHash == password).FirstOrDefault();
-
-            if (currentUser == null)
-            {
-                ColorMessage("Помилка: Невірні дані.", ConsoleColor.Red);
-                return false;
-            }
-            return true;
-        }
-
-        // --- 1. ПЕРЕГЛЯД УСІХ (Щоб побачити, що додався запис) ---
-        static void ShowAllTasks(UnitOfWork uow)
-        {
-            Console.WriteLine("\n--- СПИСОК ВСІХ ЗАВДАНЬ У БД ---");
-            var tasks = uow.Tasks.GetAll();
-
             if (!tasks.Any())
             {
                 Console.WriteLine("Список порожній.");
                 return;
             }
 
-            // Заголовок таблиці
-            Console.WriteLine("{0,-5} | {1,-30} | {2,-20} | {3,-15}", "ID", "Назва", "Виконавець", "Статус");
-            Console.WriteLine(new string('-', 80));
-
+            Console.WriteLine("{0,-5} | {1,-30} | {2,-15} | {3,-15}", "ID", "Назва", "Виконавець", "Статус");
+            Console.WriteLine(new string('-', 70));
             foreach (var t in tasks)
             {
-                string assignee = t.Assignee != null ? t.Assignee.FullName : "---";
-                Console.WriteLine("{0,-5} | {1,-30} | {2,-20} | {3,-15}",
+                Console.WriteLine("{0,-5} | {1,-30} | {2,-15} | {3,-15}",
                     t.TaskId,
-                    Truncate(t.Title, 29),
-                    Truncate(assignee, 19),
-                    t.Status?.Name);
+                    t.Title.Length > 29 ? t.Title.Substring(0, 26) + "..." : t.Title,
+                    t.AssigneeName ?? "---",
+                    t.StatusName);
             }
         }
 
-        // --- 2. СТВОРЕННЯ ЗАВДАННЯ ---
-        static void CreateTask(UnitOfWork uow)
+        static void CreateTaskUI(ITaskService service)
         {
-            if (currentUser.Role != "Manager" && currentUser.Role != "Admin")
-            {
-                ColorMessage("У вас немає прав створювати завдання!", ConsoleColor.Yellow);
-                return;
-            }
-
-            Console.WriteLine("\n--- ДОДАВАННЯ НОВОГО ЗАВДАННЯ ---");
+            Console.WriteLine("\n--- Створення завдання ---");
 
             Console.Write("Назва: ");
             string title = Console.ReadLine();
@@ -148,80 +118,28 @@ namespace ConsoleUI
             Console.Write("Опис: ");
             string desc = Console.ReadLine();
 
-            Console.Write("Днів до дедлайну: ");
-            if (!int.TryParse(Console.ReadLine(), out int days)) days = 3;
+            Console.Write("Днів до дедлайну (можна вводити мінус, щоб перевірити валідацію): ");
+            int.TryParse(Console.ReadLine(), out int days);
+            DateTime deadline = DateTime.Now.AddDays(days);
 
-            // Вибір виконавця
-            Console.WriteLine("\n--- Оберіть виконавця ---");
-            var employees = uow.Users.Find(u => u.Role == "Employee");
-            foreach (var emp in employees)
-            {
-                Console.WriteLine($"ID: {emp.UserId} - {emp.FullName}");
-            }
-            Console.Write("ID виконавця: ");
+            Console.Write("ID виконавця (наприклад, 4): ");
             int.TryParse(Console.ReadLine(), out int assigneeId);
 
-            // Створення об'єкта
-            var newTask = new MyTask
+            // Створюємо DTO
+            var taskDto = new TaskDTO
             {
                 Title = title,
                 Description = desc,
-                Deadline = DateTime.Now.AddDays(days),
-                CreatedAt = DateTime.Now,
-                CreatorId = currentUser.UserId,
-                AssigneeId = assigneeId > 0 ? assigneeId : (int?)null, // Якщо 0, то ніхто
-                StatusId = 1, // New
-                PriorityId = 2 // Medium (для спрощення ставимо дефолт)
+                Deadline = deadline,
+                AssigneeId = assigneeId > 0 ? assigneeId : null
             };
 
-            try
-            {
-                uow.Tasks.Create(newTask);
-                uow.Save(); // ФІЗИЧНИЙ ЗАПИС У БД
-                ColorMessage("Успішно додано! Перевірте список (пункт 1).", ConsoleColor.Green);
-            }
-            catch (Exception ex)
-            {
-                ColorMessage($"Помилка збереження: {ex.Message}", ConsoleColor.Red);
-                if (ex.InnerException != null) Console.WriteLine(ex.InnerException.Message);
-            }
-        }
+            // Викликаємо сервіс. Якщо щось не так - він викине ValidationException
+            service.CreateTask(taskDto, currentUserId);
 
-        // --- 3. МОЇ ЗАВДАННЯ ---
-        static void ShowMyTasks(UnitOfWork uow)
-        {
-            Console.WriteLine($"\n--- ЗАВДАННЯ ДЛЯ {currentUser.FullName} ---");
-            var myTasks = uow.Tasks.GetTasksByAssignee(currentUser.UserId);
-
-            foreach (var t in myTasks)
-            {
-                Console.WriteLine($"- {t.Title} (Пріоритет: {t.Priority?.Name})");
-            }
-        }
-
-        // --- 4. ПРОСТРОЧЕНІ ---
-        static void ShowOverdueTasks(UnitOfWork uow)
-        {
-            Console.WriteLine("\n--- УВАГА! ПРОСТРОЧЕНІ ---");
-            var overdue = uow.Tasks.GetOverdueTasks();
-            foreach (var t in overdue)
-            {
-                ColorMessage($"[!] {t.Title} (Дедлайн був: {t.Deadline})", ConsoleColor.Red);
-            }
-        }
-
-        // Допоміжні методи
-        static void ColorMessage(string msg, ConsoleColor color)
-        {
-            Console.ForegroundColor = color;
-            Console.WriteLine(msg);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("Завдання успішно створено!");
             Console.ResetColor();
-        }
-
-        static string Truncate(string value, int maxLen)
-        {
-            if (string.IsNullOrEmpty(value)) return "";
-            return value.Length <= maxLen ? value : value.Substring(0, maxLen - 3) + "...";
         }
     }
 }
