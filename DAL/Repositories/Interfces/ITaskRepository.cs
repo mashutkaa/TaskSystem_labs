@@ -3,7 +3,6 @@ using DAL.Entities;
 
 namespace DAL.Repositories.Interfaces
 {
-    // ВИПРАВЛЕННЯ: IRepository<DAL.Entities.Task>
     public interface ITaskRepository : IRepository<DAL.Entities.Task>
     {
         IEnumerable<DAL.Entities.Task> GetTasksByAssignee(int userId);
