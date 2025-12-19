@@ -1,13 +1,11 @@
 ﻿using BLL.DTO;
 using BLL.Infrastructure;
 using BLL.Interfaces;
-// УВАГА: Підключаємо BLL
 using BLL.Services;
 using DAL.EF;
 using DAL.UnitOfWork;
 using Microsoft.EntityFrameworkCore;
 using System;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
 namespace ConsoleUI
@@ -23,10 +21,13 @@ namespace ConsoleUI
             // Налаштування БД
             string connectionString = "server=localhost;database=task_management_system;user=root;password=1111;";
             var optionsBuilder = new DbContextOptionsBuilder<TaskContext>();
+
+            // Переконайтеся, що версія MySQL відповідає вашій
             optionsBuilder.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21)));
 
             using (var context = new TaskContext(optionsBuilder.Options))
             {
+                // Створюємо базу, якщо її немає
                 context.Database.EnsureCreated();
 
                 // Створюємо ланцюжок залежностей: Context -> UnitOfWork -> Service
@@ -35,17 +36,18 @@ namespace ConsoleUI
 
                 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-                // 1. АВТОРИЗАЦІЯ (Пропускаємо для економії часу, беремо менеджера ID=2)
+                // 1. АВТОРИЗАЦІЯ
                 currentUserId = 2;
                 currentUserRole = "Manager";
-                Console.WriteLine($"Вхід виконано: Менеджер (ID: {currentUserId})");
+
+                Console.WriteLine($"Вхід виконано: {currentUserRole} (ID: {currentUserId})");
 
                 // --- МЕНЮ ---
                 while (true)
                 {
                     Console.WriteLine("\n=== TASK MANAGER (LAYERED ARCHITECTURE) ===");
                     Console.WriteLine("1. Показати всі завдання");
-                    Console.WriteLine("2. Показати мої завдання (якби я був співробітником)");
+                    Console.WriteLine("2. Показати мої завдання");
                     Console.WriteLine("3. Створити завдання (через BLL)");
                     Console.WriteLine("4. Прострочені завдання");
                     Console.WriteLine("0. Вихід");
@@ -72,7 +74,8 @@ namespace ConsoleUI
                                 return;
                         }
                     }
-                    catch (ValidationException ex)
+
+                    catch (BLL.Infrastructure.ValidationException ex)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.WriteLine($"[ВАЛІДАЦІЯ]: {ex.Message} (Поле: {ex.Property})");
@@ -118,14 +121,13 @@ namespace ConsoleUI
             Console.Write("Опис: ");
             string desc = Console.ReadLine();
 
-            Console.Write("Днів до дедлайну (можна вводити мінус, щоб перевірити валідацію): ");
+            Console.Write("Днів до дедлайну (введіть мінус, щоб перевірити валідацію): ");
             int.TryParse(Console.ReadLine(), out int days);
             DateTime deadline = DateTime.Now.AddDays(days);
 
             Console.Write("ID виконавця (наприклад, 4): ");
             int.TryParse(Console.ReadLine(), out int assigneeId);
 
-            // Створюємо DTO
             var taskDto = new TaskDTO
             {
                 Title = title,
@@ -134,7 +136,7 @@ namespace ConsoleUI
                 AssigneeId = assigneeId > 0 ? assigneeId : null
             };
 
-            // Викликаємо сервіс. Якщо щось не так - він викине ValidationException
+            // Тут полетить ValidationException, якщо дані некоректні
             service.CreateTask(taskDto, currentUserId);
 
             Console.ForegroundColor = ConsoleColor.Green;

@@ -4,8 +4,10 @@ using System.Linq;
 using BLL.DTO;
 using BLL.Infrastructure;
 using BLL.Interfaces;
-using DAL.Entities; // Потрібно для Entity
+using DAL.Entities;
 using DAL.UnitOfWork;
+
+using Task = DAL.Entities.Task;
 
 namespace BLL.Services
 {
@@ -36,6 +38,7 @@ namespace BLL.Services
             }
 
             // 2. МАПІНГ (DTO -> Entity)
+            // Тепер тут не буде помилки, бо ми додали using Task = DAL.Entities.Task;
             var task = new Task
             {
                 Title = taskDto.Title,
@@ -45,7 +48,7 @@ namespace BLL.Services
                 CreatorId = creatorId,
                 AssigneeId = taskDto.AssigneeId,
                 StatusId = 1, // 'New' за замовчуванням
-                PriorityId = 2 // 'Medium' за замовчуванням, якщо не вказано інше
+                PriorityId = 2 // 'Medium' за замовчуванням
             };
 
             // 3. ЗБЕРЕЖЕННЯ
@@ -55,13 +58,10 @@ namespace BLL.Services
 
         public IEnumerable<TaskDTO> GetTasks(int? userId = null)
         {
-            // Використовуємо різні методи репозиторію в залежності від умови
             var entities = userId == null
                 ? Database.Tasks.GetAll()
                 : Database.Tasks.GetTasksByAssignee(userId.Value);
 
-            // МАПІНГ (Entity -> DTO)
-            // Ми перетворюємо складні об'єкти БД у прості DTO для відображення
             return entities.Select(t => new TaskDTO
             {
                 TaskId = t.TaskId,
