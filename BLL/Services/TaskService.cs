@@ -38,7 +38,6 @@ namespace BLL.Services
             }
 
             // 2. МАПІНГ (DTO -> Entity)
-            // Тепер тут не буде помилки, бо ми додали using Task = DAL.Entities.Task;
             var task = new Task
             {
                 Title = taskDto.Title,
