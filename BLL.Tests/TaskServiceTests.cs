@@ -14,10 +14,9 @@ using DAL.Entities;
 using DAL.Repositories.Interfaces;
 using DAL.UnitOfWork;
 
-// 3. ВИРІШЕННЯ КОНФЛІКТІВ ІМЕН (ALIASES)
-// Оскільки імена класів збігаються зі стандартними системними, ми вказуємо явно:
-using Task = DAL.Entities.Task;             // Щоб не плутати з System.Threading.Tasks.Task
-using TaskStatus = DAL.Entities.TaskStatus; // Щоб не плутати з System.Threading.Tasks.TaskStatus
+// 3. ВALIASES
+using Task = DAL.Entities.Task;
+using TaskStatus = DAL.Entities.TaskStatus;
 
 namespace BLL.Tests
 {
@@ -124,7 +123,6 @@ namespace BLL.Tests
         public void GetTasks_ShouldReturnAllTasks_WhenUserIdIsNull()
         {
             // Arrange
-            // Тепер TaskStatus тут - це саме твій клас із DAL, а не системний enum
             var tasksFromDb = new List<Task>
             {
                 new Task { TaskId = 1, Title = "T1", Status = new TaskStatus { Name = "New" } },

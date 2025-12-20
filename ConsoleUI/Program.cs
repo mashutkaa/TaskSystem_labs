@@ -22,7 +22,6 @@ namespace ConsoleUI
             string connectionString = "server=localhost;database=task_management_system;user=root;password=1111;";
             var optionsBuilder = new DbContextOptionsBuilder<TaskContext>();
 
-            // Переконайтеся, що версія MySQL відповідає вашій
             optionsBuilder.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 21)));
 
             using (var context = new TaskContext(optionsBuilder.Options))

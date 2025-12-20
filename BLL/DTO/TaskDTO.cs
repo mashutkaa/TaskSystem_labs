@@ -9,7 +9,6 @@ namespace BLL.DTO
         public string Description { get; set; }
         public DateTime? Deadline { get; set; }
 
-        // передаємо назви, а не ID, щоб UI не мучився
         public string StatusName { get; set; }
         public string PriorityName { get; set; }
 
